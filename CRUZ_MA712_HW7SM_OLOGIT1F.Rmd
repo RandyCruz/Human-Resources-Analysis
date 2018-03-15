@@ -1,0 +1,130 @@
+---
+title: "CRUZ_MA712_HW7HRA_STATISTICALMODELS_OLOGIT"
+output: html_notebook
+---
+#INTRO
+
+# How does the relationship between a promotion, avg monthly hours worked and time spent with a company effect salary ?
+
+```{r}
+library(Zelig)
+library(ZeligChoice)
+library(faraway)
+library(dplyr)
+library(tidyr)
+library(survival)
+```
+#Data Upload - Human Resource Data
+```{r}
+library(radiant.data)
+library(readr)
+  jquit <- read_csv("/Users/Cruz/Desktop/jquit.csv", col_names = TRUE)
+ head(jquit)
+```
+#Cleaning data set
+```{r}
+jquit<-na.omit(jquit)
+head(jquit)
+```
+#Running a sample regression to get an idea of some of the variables in the data set.
+```{r}
+glm.model <- glm(left ~ ., data = jquit, family = "binomial")
+summary(glm.model)
+```
+
+
+```{r}
+xtabs(~time_spend_company, jquit)
+
+xtabs(~promotion_last_5years, jquit)
+
+xtabs(~salary, jquit)
+
+xtabs(~left, jquit)
+
+```
+#Preping data for ologit statistical model.
+```{r}
+jquit$salary <- factor(jquit$salary, ordered = TRUE,
+                         levels = c("low", "medium", "high"))
+
+jquit <- jquit%>%
+  mutate(promotion_last_5years = as.factor(promotion_last_5years))
+```
+#Statistical Model, ologit
+```{r}
+z.ord <- zelig(salary ~ promotion_last_5years + time_spend_company + average_montly_hours, model = "ologit",
+               data = jquit, cite = F)
+summary(z.ord)
+```
+
+```{r}
+x.no <- setx(z.ord, promotion_last_5years = 0)
+x.yes <- setx(z.ord, promotion_last_5years = 1)
+```
+
+```{r}
+s.ord <- sim(z.ord, x = x.no, x1 = x.yes)
+summary(s.ord)
+```
+
+```{r}
+graphics.off()
+ par("mar")
+ par(mar=c(1,1,1,1))
+plot(s.ord)
+```
+
+
+```{r}
+c1x <- setx(z.ord, promotion_last_5years = "0", jquit )
+c1x1 <- setx(z.ord, promotion_last_5years = "1", jquit)
+c1s <- sim(z.ord, x = c1x, x1 = c1x1)
+graphics.off()
+ par("mar")
+```
+
+
+```{r}
+ par(mar=c(1,1,1,1))
+plot(c1s)
+```
+
+
+
+
+```{r}
+d1 <- c1s$get_qi(xvalue="x1", qi="fd")
+dfd <- as.data.frame(cbind(d1))
+head(dfd)
+
+```
+
+
+
+#Difference between those who did and did not receive a promo in last 5 months in Likelihood of being in Low income group = mean = (-0.268) units
+
+```{r}
+library(ggplot2)
+
+ggplot(dfd)+
+  geom_histogram(aes(x=low),color = "black", fill = "aqua marine1")
+
+```
+
+
+#Difference between those who did and did not receive a promo in last 5 months in Likelihood of being in Medium income group = mean = (0.126)
+```{r}
+ggplot(dfd)+
+  geom_histogram(aes(x=medium),color = "black", fill = "aqua marine1")
+```
+
+#Difference between those who did and did not receive a promo in last 5 months in Likelihood of being in High income group = mean = (0.156)
+```{r}
+ggplot(dfd)+
+  geom_histogram(aes(x=high),color = "black", fill = "aqua marine1") 
+```
+
+
+
+
